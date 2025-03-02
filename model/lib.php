@@ -2,7 +2,7 @@
 DB::$dsn = 'mysql:host=localhost;dbname=easet';
 DB::$user = 'c5sWttLvLZ';
 DB::$password = 'hF1zJCDbvsVkodiMMzaq';
-function json_response($code = 200, $message = null, $data = null)
+function jsonResp($code = 200, $message = null, $data = null)
 {
     // clear the old headers
     header_remove();
@@ -21,11 +21,21 @@ function json_response($code = 200, $message = null, $data = null)
     // ok, validation error, or failure
     header('Status: '.$status[$code]);
     // return the encoded json
-    return json_encode(array(
+    /*return json_encode(array(
         'status' => $code < 300, // success or not?
         'message' => $message,
         'data' => $data
-        ));
+        ));*/
+    
+    $jsonData = array(
+        'status' => $code < 300, // success or not?
+        'message' => $message,
+        'data' => $data
+    );
+    echo json_encode($jsonData);
+
+    $GLOBALS["jsonResponse"] = json_encode($jsonData);
+    $GLOBALS["stsResponse"] = $code;
 }
 
 /*
@@ -35,16 +45,16 @@ if (empty($_POST)) {
 }
 
 // usage
-echo json_response(200, 'working'); // {"status":true,"message":"working"}
+echo jsonResp(200, 'working'); // {"status":true,"message":"working"}
 
 // array usage
-echo json_response(200, array(
+echo jsonResp(200, array(
   'data' => array(1,2,3)
   ));
 // {"status":true,"message":{"data":[1,2,3]}}
 
 // usage with error
-echo json_response(500, 'Server Error! Please Try Again!'); // {"status":false,"message":"Server Error! Please Try Again!"}
+echo jsonResp(500, 'Server Error! Please Try Again!'); // {"status":false,"message":"Server Error! Please Try Again!"}
 */
 
 function acakHuruf($bdigit){

@@ -1,23 +1,23 @@
 <?php
 header("Content-Type: application/json");
 
-$id_log = getPk();
-//$jsonResponse='';
-function responseHasil($code, $status, $data)
-{
-    $jsonData = array(
-        'code' => $code,
-        'status' => $status,
-        'data' => $data
-    );
-    echo json_encode($jsonData);
-
-    $GLOBALS["jsonResponse"] = json_encode($jsonData);
-}
-
-$header=array();
-$header=getallheaders();
+$header = array();
+$header = getallheaders();
 //die();
+
+//echo print_r($_POST); die();
+$method = $_SERVER['REQUEST_METHOD'];
+
+$input = json_decode(file_get_contents('php://input'), true);
+
+//log params start
+$actual_link1 = $_SERVER['REQUEST_URI'];
+$actual_link = str_replace(' ', '', $actual_link1);
+$inputJson = json_encode($input);
+$jsonResponse = isset($GLOBALS["jsonResponse"]) ? $GLOBALS["jsonResponse"] : '';
+$stsResponse = isset($GLOBALS["stsResponse"]) ? $GLOBALS["stsResponse"] : '';
+$logMethod = $_SERVER['REQUEST_METHOD'];
+//log params end
 
 
 $reqToken = isset($header['token']) ? $header['token'] : '';
@@ -26,14 +26,11 @@ $sqlCekToken = "SELECT token FROM production.token_access WHERE token='$reqToken
 //echo $sqlCekToken; die();
 $resultCekToken = DB::query($sqlCekToken);
 if (count($resultCekToken) < 1) {
-    echo json_response(400, 'Token access tidak ditemukan!');
+    jsonResp(400, 'Token access tidak ditemukan!');
+    logHit($logMethod, $actual_link, $inputJson, $stsResponse, $jsonResponse);
     return;
 }
 
-//echo print_r($_POST); die();
-$method = $_SERVER['REQUEST_METHOD'];
-
-$input = json_decode(file_get_contents('php://input'), true);
 $pdo = "";
 
 switch ($method) {
@@ -51,26 +48,38 @@ switch ($method) {
         break;
     default:
         responseHasil(400, false, "Invalid_user request method");
+        logHit($logMethod, $actual_link, $inputJson, $stsResponse, $jsonResponse);
         break;
 }
 
-
-
 function handleGet($pdo)
 {
-    $tambah='';
-    $header=array();
-    $header=getallheaders();
-    if(isset($header['id_kategori'])){$cek = $header['id_kategori'];} else {$cek = "9";}
+    $request = $_SERVER['REQUEST_URI'];
+    $getId = explode("/", $request);
+    $idUrl = $getId[count($getId) - 1];
+    //echo $idUrl; die();
+
+    $tambah = '';
+    $header = array();
+    $header = getallheaders();
+    if (isset($header['id_kategori'])) {
+        $cek = $header['id_kategori'];
+    } else {
+        $cek = "9";
+    }
     //echo $cek; die();
-    if($cek==9){
-        $tambah="AND id_kategori!=0";
-    }else{
-        $tambah="";
+    if ($cek == 9) {
+        $tambah = " AND id_kategori!=0 ";
+    } else {
+        $tambah = "";
     }
 
-	
-	$sql = "
+    if ($idUrl != "") {
+        $tambah .= " AND id_kategori='$idUrl' ";
+    }
+
+
+    $sql = "
 	select
 	`id_kategori`,
 	`kategori`,
@@ -85,27 +94,26 @@ function handleGet($pdo)
     WHERE 1=1
       $tambah
 	order by ins_date ASC
-	";	
-    
+	";
+    //echo $sql; die;
+
     $result = DB::query($sql);
-    //responseHasil(200, true, $result);
-    echo json_response(200, 'Data kategori',$result);
-    //echo json_encode($result);  
+    jsonResp(200, 'Success', $result);
 }
 
 function handlePost($pdo, $input)
 {
     $pk = getPk();
-	$id_kategori=$pk;
-	$kategori = $input['kategori'];
+    $id_kategori = $pk;
+    $kategori = $input['kategori'];
     $sub_kategori = $input['sub_kategori'];
-	$keterangan = $input['keterangan'];
-	$jumlah_aset = $input['jumlah_aset'];
-	$status_kategori = $input['status_kategori'];
-	$masa_manfaat = $input['masa_manfaat'];
-	$penyusutan_persen_pertahun = $input['penyusutan_persen_pertahun'];
-	$ins_user = $input['ins_user'];
-	
+    $keterangan = $input['keterangan'];
+    $jumlah_aset = $input['jumlah_aset'];
+    $status_kategori = $input['status_kategori'];
+    $masa_manfaat = $input['masa_manfaat'];
+    $penyusutan_persen_pertahun = $input['penyusutan_persen_pertahun'];
+    $ins_user = $input['ins_user'];
+
     $sql = "
     INSERT INTO `easet`.`kategori_aset` VALUES
   (
@@ -116,7 +124,7 @@ function handlePost($pdo, $input)
     '$jumlah_aset',
     '$status_kategori',
     '$masa_manfaat',
-    'penyusutan_persen_pertahun',
+    '$penyusutan_persen_pertahun',
     '$ins_user',
     now(),
     '',
@@ -129,29 +137,30 @@ function handlePost($pdo, $input)
     $resultCekExisting = DB::query($sqlCekExisting);
     if (count($resultCekExisting) > 0) {
         responseHasil(400, false, "Kategori tersebut sudah ada");
+        logHit($logMethod, $actual_link, $inputJson, $stsResponse, $jsonResponse);
         return;
     }
 
     $results = DB::query($sql);
     if ($results) {
-        responseHasil(200, true, "Kategori: " . $kategori . " created successfully");
+        jsonResp(200, 'Success', "Kategori: " . $kategori . " created successfully");
     } else {
-        responseHasil(400, false, "Kategori: " . $kategori . " not created");
+        jsonResp(400, 'Error', "Kategori: " . $kategori . " not created");
     }
 
 }
 
 function handlePut($pdo, $input)
 {
-    $id_kategori=$input['id_kategori'];
-	$kategori = $input['kategori'];
+    $id_kategori = $input['id_kategori'];
+    $kategori = $input['kategori'];
     $sub_kategori = $input['sub_kategori'];
-	$keterangan = $input['keterangan'];
-	$jumlah_aset = $input['jumlah_aset'];
-	$status_kategori = $input['status_kategori'];
-	$masa_manfaat = $input['masa_manfaat'];
-	$penyusutan_persen_pertahun = $input['penyusutan_persen_pertahun'];
-	$upd_user = $input['upd_user'];
+    $keterangan = $input['keterangan'];
+    $jumlah_aset = $input['jumlah_aset'];
+    $status_kategori = $input['status_kategori'];
+    $masa_manfaat = $input['masa_manfaat'];
+    $penyusutan_persen_pertahun = $input['penyusutan_persen_pertahun'];
+    $upd_user = $input['upd_user'];
 
     $sql = "
 		update
@@ -172,16 +181,16 @@ function handlePut($pdo, $input)
 
     $results = DB::query($sql);
     if ($results) {
-        responseHasil(200, true, "Kategori: " . $kategori . " update successfully");
+        jsonResp(200, 'Success', "Kategori: " . $kategori . " update successfully");
     } else {
-        responseHasil(400, false, "Kategori: " . $kategori . " not update");
+        jsonResp(400, 'Error', "Kategori: " . $kategori . " not update");
     }
 }
 
 function handleDelete($pdo, $input)
 {
     $id_kategori = $input['id_kategori'];
-	//echo $input['id_user']; die();
+    //echo $input['id_user']; die();
 
     $sql = "
 	delete
@@ -193,41 +202,20 @@ function handleDelete($pdo, $input)
     if ($id_kategori != "") {
         $results = DB::query($sql);
         if ($results) {
-            responseHasil(200, true, "Kategori: " . $id_kategori . " delete successfully");
+            jsonResp(200, 'Success', "Kategori: " . $id_kategori . " delete successfully");
         } else {
-            responseHasil(400, false, "Kategori: " . $id_kategori . " not delete");
+            jsonResp(400, 'Error', "Kategori: " . $id_kategori . " not delete");
         }
     } else {
-        responseHasil(400, false, "ID Kategori is empty");
+        jsonResp(400, "ID Kategori is empty", "");
+
     }
 
 }
 
 //insert to tabel log hit
-$actual_link = $_SERVER['REQUEST_URI'];
-$actual_link = str_replace(' ', '', $actual_link);
-$jsonResponse = $GLOBALS["jsonResponse"];
-$inputJson = json_encode($input);
-//$headerJson =json_encode($all_headers);
-$sqlLogHit = "
-insert into `easet`.`log_hit` values
-  (
-    '$id_log',
-    now(),
-    '$method',
-    '$actual_link',
-    '$inputJson',
-    '$jsonResponse'
-  );
-";
-//echo $sqlLogHit; die();
-$resultLogHit = DB::query($sqlLogHit);
-if ($resultLogHit) {
 
-} else {
-    responseHasil(400, false, "Log gagal disimpan");
-    return;
-}
+logHit($logMethod, $actual_link, $inputJson, $stsResponse, $jsonResponse);
 
-//echo json_response(200, 'Kategori');
+//echo jsonResp(200, 'Kategori');
 ?>
